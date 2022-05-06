@@ -1,0 +1,250 @@
+
+/*仮想画面の処理*/
+Buffer 1
+
+L=17 ;ボタンの大きさ
+M=0 ;x座標定数
+N=0 ;y座標定数
+
+//枠
+Repeat 3,0
+
+M=(L+1)*Cnt
+
+Color 0,0,0:Line M,N+L,M,N:Line M+L,N+L:Line M+L,N:Line M,N
+Color 255,255,255:Pset M,N:Pset M,N+L:Pset M+L,N+L:Pset M+L,N
+
+//×マーク
+Color 0,0,0:Line M+1+Cnt,N+1+Cnt,M+13+Cnt,N+13+Cnt:Line M+2+Cnt,N+1+Cnt,M+13+Cnt,N+12+Cnt:Line M+1+Cnt,N+2+Cnt,M+12+Cnt,N+13+Cnt
+Line M+14+Cnt,N+1+Cnt,M+2+Cnt,N+13+Cnt:Line M+13+Cnt,N+1+Cnt,M+2+Cnt,N+12+Cnt:Line M+14+Cnt,N+2+Cnt,M+3+Cnt,N+13+Cnt
+
+Loop
+
+//画像の読み込み
+Pos 0,50:Picload "Mark.png",1
+Pos 0,100:Picload "PlayingCard.png",1
+
+
+/*メイン画面の処理*/
+Width_=600 ;ウィンドウ幅
+Height=300 ;ウィンドウ高
+
+Screen 0,Width_,Height:Title "BLACKJACK"
+
+/*変数の定義*/
+*Define
+
+K=0 ;変数1
+L=0 ;変数2
+
+CardX=70 ;カード幅
+CardY=100 ;カード高
+
+ButtonY=30 ;ボタン高
+
+SumX=10 ;合計表示位置横
+SumY=200 ;合計表示位置縦
+
+X=100 ;カード並べ始め横
+Y=0 ;カード並べ始め縦
+
+Turn=0 ;ターンプレイヤー変数
+
+SumC=0 ;COM合計
+SumP=0 ;PLAYER合計
+
+AceC=0 ;COMがAを出した枚数
+AceP=0 ;PLAYERがAを出した枚数
+
+Red=0 ;Red値の指定
+
+Rep=0 ;繰り返し定数
+
+Sdim Symbol ;文字列型変数
+
+Sdim Message ;勝敗判定用
+
+/*ゲーム開始*/
+*Mein
+
+Randomize
+
+Redraw 0
+
+Cls
+
+//文字色とフォントを定義
+Color 0,0,0:Font "メイリオ",24,0
+
+//オブジェクトの大きさを定義
+Objsize Width_/3,ButtonY
+
+Pos SumX,0:Mes "COM":Pos 5,SumY-30:Mes "PLAYER"
+
+//COM合計欄に"?/21"を描画
+Pos SumX,30:Mes "?":Pos SumX+40,30:Mes "/21"
+
+//PLAYER合計欄に"0/21"を描画
+Pos SumX,SumY:Mes SumP:Pos SumX+40,SumY:Mes "/21"
+
+//Retryボタンを描画
+Pos Width_*2/3,Height-ButtonY:Button "RETRY",*Define
+
+Redraw 1
+
+//COM表側1HIT、裏側1HIT
+Wait 100:Gosub *Hit:Wait 100:Pos X+CardX*Rep,Y:Gcopy 1,0,100,CardX+1,CardY+1:Redraw 1
+
+//PLAYER表側2HIT
+
+Rep=0 ;繰り返し定数をリセット
+Turn=1 ;ターンプレイヤー切り替え
+Y=Height-CardY-ButtonY-1 ;カード位置をPLAYER用に変更
+
+Wait 100:Gosub *Hit:Wait 100:Gosub *Hit
+
+//オートStandの判定
+If SumP=21:Goto *Stand
+
+/*PLAYERのターン*/
+*Player
+
+//HIT、STANDボタン
+Pos 0,Height-ButtonY:Button "HIT",*Hit
+Pos Width_/3,Height-ButtonY:Button "STAND",*Stand
+
+Stop
+
+/*COMのターン*/
+*Com
+
+Rep=1 ;繰り返し定数を修正
+Turn=0 ;ターンプレイヤー切り替え
+Y=0 ;カード位置をCOM用に変更
+
+Redraw 0
+
+Color 255,255,255:Boxf X+CardX*Rep+CardX,Y,X+CardX*Rep,Y+CardY:Color ;裏側を消去
+Gosub *Hit ;即座に1枚引く
+
+Repeat
+
+//COM合計欄の消去
+Color 255,255,255:Boxf 0,30,X-55,60:Color
+
+//COM合計欄の描画
+Pos SumX,30:Mes SumC
+
+Redraw 1
+
+If SumC=0:Break
+
+Wait 100
+
+//COMのHIT判断
+If SumC<16 {Gosub *Hit} Else {Break}
+
+//Aについての判断
+If SumC>21&SumC-AceC>21{SumC=0} Else {SumC=SumC-AceC:AceC=0}
+
+Loop
+
+Goto *Winner
+
+/*乱数発生と代入処理*/
+*Hit
+
+K=50*Rnd(4)
+
+If K\100=50 {Red=255} Else {Red=0}
+
+L=Rnd(13)+1:Symbol=L
+
+//カード用に修正
+If L=11:Symbol="J":L=10
+If L=12:Symbol="Q":L=10
+If L=13:Symbol="K":L=10
+If L=1:Symbol="A":L=11
+
+//プレイヤーを認識しAの出た回数を加算
+If Turn=0&Symbol="A":AceC=AceC+10
+If Turn=1&Symbol="A":AceP=AceP+10
+
+//プレイヤーを認識し合計を加算
+If Turn=0:SumC=SumC+L
+If Turn=1:SumP=SumP+L
+
+//Burst確認
+If SumP>21&SumP=SumP-AceP<=21:SumP=SumP-AceP:AceP=0
+
+/*カードの描画*/
+*Draw
+
+//マークの描画
+Pos X+CardX*Rep+2,Y+5:Gzoom 15,15,1,K,50,50,50,1
+
+//カード枠の描画
+Color 0,0,0:Line X+CardX*Rep+CardX,Y,X+CardX*Rep,Y:Line X+CardX*Rep+CardX,Y+CardY:Line X+CardX*Rep,Y+CardY:Line X+CardX*Rep,Y
+
+//カード番号の描画
+Pos X+CardX*Rep+CardX/3,Y+CardY/3:If Symbol=10:Pos X+CardX*Rep+CardX/6,Y+CardY/3
+Color Red,0,0:Font "メイリオ",36,0:Mes Symbol
+
+Redraw 0
+
+//Player合計欄の消去
+Color 255,255,255:Boxf 0,SumY,X-55,SumY+30:Color
+
+//Player合計欄の描画
+Pos SumX,SumY:Font "メイリオ",24,0:Mes SumP
+
+Rep++
+
+If Turn=0:Return ;COMはいつもここでサブルーチン
+If SumP<=21:Redraw 1
+
+If Rep<=2:Return ;最初2ループはサブルーチン
+
+//オートStand、Burstの判定
+If SumP=21:Goto *Stand
+If SumP>21:Goto *Burst
+
+Stop
+
+/*Stand処理*/
+*Stand
+
+//Retry以外のボタンを消去
+If Rep>=3:Clrobj 1,2
+
+Pos 110,120:Color 0,0,0:Font "メイリオ",24,0:Mes "Stand"
+
+Redraw 1:Redraw 0
+
+Goto *Com ;コンピュータのターンへ
+
+/*Burst処理*/
+*Burst
+
+//Retry以外のボタンを消去
+Clrobj 1,2
+
+Pos 110,120:Color 0,0,0:Font "メイリオ",24,0:Mes "Burst":SumP=0
+
+Redraw 1:Redraw 0
+
+Goto *Com ;コンピュータのターンへ
+
+/*勝敗の判断*/
+*Winner
+
+//メッセージの代入
+If SumP>SumC:Message="おめでとう。あなたの勝ちです!"
+If SumP=SumC:Message="引き分けです。"
+If SumP<SumC:Message="残念。COMの勝ちです!"
+
+Wait 100
+
+Dialog Message,0
+
+Stop
